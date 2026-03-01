@@ -22,10 +22,14 @@ export class CustomizeCE {
     editor: Editor;
     buttons: Record<string, HTMLButtonElement> = {};
     bubbleMenuElement: HTMLElement;
+    sourceTextArea: HTMLTextAreaElement;
+    isSourceMode: boolean = false;
+    onChange?: (html: string) => void;
 
     constructor(config: CustomizeCEConfig) {
         this.element = config.element;
         this.toolbarElement = config.toolbarElement;
+        this.onChange = config.onChange;
         
         // Create Bubble Menu Element
         this.bubbleMenuElement = document.createElement('div');
@@ -60,14 +64,13 @@ export class CustomizeCE {
                 ThreatAttributes,
                 BubbleMenu.configure({
                     element: this.bubbleMenuElement,
-                    tippyOptions: { duration: 100 },
                 }),
             ],
             content: config.content || '',
             onUpdate: ({ editor }) => {
                 // Trigger any external callbacks
-                if (typeof config.onChange === 'function') {
-                    config.onChange(editor.getHTML());
+                if (typeof this.onChange === 'function') {
+                    this.onChange(editor.getHTML());
                 }
             },
             onSelectionUpdate: ({ editor }) => {
@@ -75,6 +78,16 @@ export class CustomizeCE {
                 this.updateToolbarState(); 
             }
         });
+
+        // Create Source Text Area
+        this.sourceTextArea = document.createElement('textarea');
+        this.sourceTextArea.className = 'w-full h-full min-h-[250mm] outline-none resize-y font-mono text-sm bg-gray-900 text-gray-100 p-6 rounded shadow-inner hidden';
+        this.sourceTextArea.addEventListener('input', () => {
+            if (typeof this.onChange === 'function') {
+                this.onChange(this.sourceTextArea.value);
+            }
+        });
+        this.element.appendChild(this.sourceTextArea);
 
         // Handle AI Submit
         aiSubmit.onclick = () => {
@@ -99,12 +112,23 @@ export class CustomizeCE {
     }
 
     // --- Core API Methods ---
-    getHTML() { return this.editor.getHTML(); }
-    setHTML(html: string) { this.editor.commands.setContent(html); }
+    getHTML() { 
+        return this.isSourceMode ? this.sourceTextArea.value : this.editor.getHTML(); 
+    }
+    setHTML(html: string) { 
+        if (this.isSourceMode) {
+            this.sourceTextArea.value = html;
+        } else {
+            this.editor.commands.setContent(html); 
+        }
+    }
     destroy() { 
         this.editor.destroy(); 
         if (this.bubbleMenuElement.parentNode) {
             this.bubbleMenuElement.parentNode.removeChild(this.bubbleMenuElement);
+        }
+        if (this.sourceTextArea.parentNode) {
+            this.sourceTextArea.parentNode.removeChild(this.sourceTextArea);
         }
     }
     getDOMNode() { return this.editor.view.dom; }
@@ -135,12 +159,54 @@ export class CustomizeCE {
              this.editor.chain().focus().setMark('textStyle', { dataCue: null, dataThreatId: null }).removeEmptyTextStyle().run();
         });
         this.toolbarElement.appendChild(removeThreatBtn);
+
+        // Add Source Code Toggle Button
+        this.buttons.source = this.createButton('&lt;/&gt; Source', () => this.toggleSourceMode());
+        this.buttons.source.classList.add('ml-auto'); // Push to the right
+    }
+
+    toggleSourceMode() {
+        this.isSourceMode = !this.isSourceMode;
+        const pmDom = this.editor.view.dom as HTMLElement;
+
+        if (this.isSourceMode) {
+            // Switch to source mode
+            const html = this.editor.getHTML();
+            // Basic formatting to make it readable
+            const formattedHtml = html
+                .replace(/(<\/(p|h1|h2|h3|h4|h5|h6|ul|ol|li|table|tr|td|th|blockquote)>)/gi, '$1\n')
+                .replace(/(<(p|h1|h2|h3|h4|h5|h6|ul|ol|li|table|tr|td|th|blockquote)[^>]*>)/gi, '\n$1')
+                .trim();
+            
+            this.sourceTextArea.value = formattedHtml || html;
+            pmDom.style.display = 'none';
+            this.sourceTextArea.style.display = 'block';
+            
+            // Disable other buttons
+            Object.entries(this.buttons).forEach(([key, btn]) => {
+                if (key !== 'source') btn.disabled = true;
+            });
+            this.toggleButtonActive(this.buttons.source, true);
+        } else {
+            // Switch to WYSIWYG mode
+            const html = this.sourceTextArea.value;
+            this.editor.commands.setContent(html);
+            
+            this.sourceTextArea.style.display = 'none';
+            pmDom.style.display = 'block';
+            
+            // Enable other buttons
+            Object.entries(this.buttons).forEach(([key, btn]) => {
+                if (key !== 'source') btn.disabled = false;
+            });
+            this.toggleButtonActive(this.buttons.source, false);
+        }
     }
 
     createButton(label: string, onClick: () => void) {
         const btn = document.createElement('button');
         btn.innerHTML = label;
-        btn.className = 'px-3 py-1 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors';
+        btn.className = 'px-3 py-1 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed';
         btn.onclick = onClick;
         this.toolbarElement.appendChild(btn);
         return btn;
