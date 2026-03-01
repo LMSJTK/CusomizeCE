@@ -1,0 +1,28 @@
+@import "tailwindcss";
+@plugin "@tailwindcss/typography";
+
+.ProseMirror {
+  outline: none;
+  min-height: 100%;
+}
+
+.ProseMirror span[data-cue="threat"] {
+  background-color: #fee2e2; /* red-100 */
+  color: #991b1b; /* red-800 */
+  padding: 0.125rem 0.25rem;
+  border-radius: 0.25rem;
+  border: 1px solid #fca5a5; /* red-300 */
+  font-weight: 500;
+}
+.ProseMirror span[data-cue="threat"]::after {
+  content: " [Threat: " attr(data-threat-id) "]";
+  font-size: 0.75em;
+  color: #ef4444; /* red-500 */
+}
+.ProseMirror p.is-editor-empty:first-child::before {
+  color: #adb5bd;
+  content: attr(data-placeholder);
+  float: left;
+  height: 0;
+  pointer-events: none;
+}

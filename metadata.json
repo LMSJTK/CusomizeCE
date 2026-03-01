@@ -1,0 +1,5 @@
+{
+  "name": "Customize CE Editor",
+  "description": "A standalone Tiptap-based editor with custom Threat Attributes and an AI Assistant Bubble Menu.",
+  "requestFramePermissions": []
+}
