@@ -9,7 +9,14 @@ import { TableRow } from '@tiptap/extension-table-row';
 import { TableCell } from '@tiptap/extension-table-cell';
 import { TableHeader } from '@tiptap/extension-table-header';
 import { TextStyle } from '@tiptap/extension-text-style';
+import { Color } from '@tiptap/extension-color';
+import { Highlight } from '@tiptap/extension-highlight';
+import { TextAlign } from '@tiptap/extension-text-align';
 import { ThreatAttributes } from '../extensions/ThreatAttributes';
+import { Video } from '../extensions/Video';
+import { Audio } from '../extensions/Audio';
+import { FontSize } from '../extensions/FontSize';
+import { LineHeight } from '../extensions/LineHeight';
 
 export interface TiptapEditorProps {
     content: string;
@@ -39,6 +46,13 @@ export const TiptapEditor = forwardRef<TiptapEditorRef, TiptapEditorProps>(
                 TableCell,
                 TextStyle,
                 ThreatAttributes,
+                Color,
+                Highlight.configure({ multicolor: true }),
+                TextAlign.configure({ types: ['heading', 'paragraph'] }),
+                Video,
+                Audio,
+                FontSize,
+                LineHeight,
             ],
             content: content,
             onUpdate: ({ editor }) => {
@@ -91,6 +105,21 @@ export const TiptapEditor = forwardRef<TiptapEditorRef, TiptapEditorProps>(
             }, 1000);
         };
 
+        const addImage = () => {
+            const url = window.prompt('Enter Image URL');
+            if (url && editor) editor.chain().focus().setImage({ src: url }).run();
+        };
+
+        const addVideo = () => {
+            const url = window.prompt('Enter Video URL');
+            if (url && editor) editor.chain().focus().setVideo({ src: url }).run();
+        };
+
+        const addAudio = () => {
+            const url = window.prompt('Enter Audio URL');
+            if (url && editor) editor.chain().focus().setAudio({ src: url }).run();
+        };
+
         const renderToolbar = () => {
             if (!editor) return null;
 
@@ -120,6 +149,66 @@ export const TiptapEditor = forwardRef<TiptapEditorRef, TiptapEditorProps>(
                     <Button onClick={() => editor.chain().focus().toggleBlockquote().run()} isActive={editor.isActive('blockquote')} disabled={isSourceMode}>Quote</Button>
                     <Button onClick={() => editor.chain().focus().undo().run()} disabled={isSourceMode}>Undo</Button>
                     <Button onClick={() => editor.chain().focus().redo().run()} disabled={isSourceMode}>Redo</Button>
+
+                    <div className="w-px h-6 bg-gray-300 mx-1 self-center"></div>
+
+                    <Button onClick={() => editor.chain().focus().setTextAlign('left').run()} isActive={editor.isActive({ textAlign: 'left' })} disabled={isSourceMode}>Left</Button>
+                    <Button onClick={() => editor.chain().focus().setTextAlign('center').run()} isActive={editor.isActive({ textAlign: 'center' })} disabled={isSourceMode}>Center</Button>
+                    <Button onClick={() => editor.chain().focus().setTextAlign('right').run()} isActive={editor.isActive({ textAlign: 'right' })} disabled={isSourceMode}>Right</Button>
+
+                    <div className="w-px h-6 bg-gray-300 mx-1 self-center"></div>
+
+                    <Button onClick={addImage} disabled={isSourceMode}>Image</Button>
+                    <Button onClick={addVideo} disabled={isSourceMode}>Video</Button>
+                    <Button onClick={addAudio} disabled={isSourceMode}>Audio</Button>
+
+                    <div className="w-px h-6 bg-gray-300 mx-1 self-center"></div>
+
+                    <div className="flex items-center gap-1">
+                        <input
+                            type="color"
+                            onInput={(e) => editor.chain().focus().setColor(e.currentTarget.value).run()}
+                            value={editor.getAttributes('textStyle').color || '#000000'}
+                            disabled={isSourceMode}
+                            title="Text Color"
+                            className="w-8 h-8 p-0 border-0 rounded cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                        />
+                        <input
+                            type="color"
+                            onInput={(e) => editor.chain().focus().toggleHighlight({ color: e.currentTarget.value }).run()}
+                            value={editor.getAttributes('highlight').color || '#ffffff'}
+                            disabled={isSourceMode}
+                            title="Background Color"
+                            className="w-8 h-8 p-0 border-0 rounded cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                        />
+                    </div>
+
+                    <select 
+                        onChange={(e) => editor.chain().focus().setFontSize(e.target.value).run()} 
+                        disabled={isSourceMode}
+                        className="border border-gray-300 rounded px-2 py-1 text-sm bg-white disabled:opacity-50 disabled:cursor-not-allowed"
+                        value={editor.getAttributes('textStyle').fontSize || ''}
+                    >
+                        <option value="">Size</option>
+                        <option value="12px">12px</option>
+                        <option value="16px">16px</option>
+                        <option value="20px">20px</option>
+                        <option value="24px">24px</option>
+                    </select>
+
+                    <select 
+                        onChange={(e) => editor.chain().focus().setLineHeight(e.target.value).run()} 
+                        disabled={isSourceMode}
+                        className="border border-gray-300 rounded px-2 py-1 text-sm bg-white disabled:opacity-50 disabled:cursor-not-allowed"
+                        value={editor.getAttributes('paragraph').lineHeight || editor.getAttributes('heading').lineHeight || ''}
+                    >
+                        <option value="">Line Height</option>
+                        <option value="1">1</option>
+                        <option value="1.5">1.5</option>
+                        <option value="2">2</option>
+                    </select>
+
+                    <div className="w-px h-6 bg-gray-300 mx-1 self-center"></div>
                     
                     <Button 
                         onClick={() => editor.chain().focus().setMark('textStyle', { dataCue: 'threat', dataThreatId: '123' }).run()} 
