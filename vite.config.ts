@@ -14,6 +14,8 @@ export default defineConfig(({mode}) => {
     ],
     define: {
       'process.env.GEMINI_API_KEY': JSON.stringify(env.GEMINI_API_KEY),
+      // Add this line to fix the "process is not defined" error in the browser
+      'process.env.NODE_ENV': JSON.stringify(mode === 'development' ? 'development' : 'production'),
     },
     resolve: {
       alias: {
