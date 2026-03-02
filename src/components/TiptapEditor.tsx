@@ -1,7 +1,6 @@
 import React, { useState, useImperativeHandle, forwardRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useEditor, EditorContent } from '@tiptap/react';
-import { BubbleMenu } from '@tiptap/react/menus';
 import StarterKit from '@tiptap/starter-kit';
 import { Image } from '@tiptap/extension-image';
 import { CustomTable } from '../extensions/CustomTable';
@@ -12,7 +11,6 @@ import { TextStyle } from '@tiptap/extension-text-style';
 import { Color } from '@tiptap/extension-color';
 import { Highlight } from '@tiptap/extension-highlight';
 import { TextAlign } from '@tiptap/extension-text-align';
-import { ThreatAttributes } from '../extensions/ThreatAttributes';
 import { Video } from '../extensions/Video';
 import { Audio } from '../extensions/Audio';
 import { FontSize } from '../extensions/FontSize';
@@ -23,7 +21,7 @@ import {
     List, ListOrdered, Quote, Undo, Redo, 
     AlignLeft, AlignCenter, AlignRight, 
     Image as ImageIcon, Video as VideoIcon, Music as AudioIcon,
-    ShieldAlert, ShieldOff, Code,
+    Code,
     Link as LinkIcon, Unlink, Table as TableIcon, Search
 } from 'lucide-react';
 
@@ -42,8 +40,6 @@ export const TiptapEditor = forwardRef<TiptapEditorRef, TiptapEditorProps>(
     ({ content, toolbarElement, onUpdate }, ref) => {
         const [isSourceMode, setIsSourceMode] = useState(false);
         const [sourceHtml, setSourceHtml] = useState(content);
-        const [aiPrompt, setAiPrompt] = useState('');
-        const [isGenerating, setIsGenerating] = useState(false);
         const [showSearch, setShowSearch] = useState(false);
         const [searchTerm, setSearchTerm] = useState('');
         const [replaceTerm, setReplaceTerm] = useState('');
@@ -57,7 +53,6 @@ export const TiptapEditor = forwardRef<TiptapEditorRef, TiptapEditorProps>(
                 TableHeader,
                 TableCell,
                 TextStyle,
-                ThreatAttributes,
                 Color,
                 Highlight.configure({ multicolor: true }),
                 TextAlign.configure({ types: ['heading', 'paragraph'] }),
@@ -105,17 +100,6 @@ export const TiptapEditor = forwardRef<TiptapEditorRef, TiptapEditorProps>(
                 setSourceHtml(formattedHtml || html);
             }
             setIsSourceMode(!isSourceMode);
-        };
-
-        const handleAiSubmit = () => {
-            if (!aiPrompt || !editor) return;
-            setIsGenerating(true);
-            setTimeout(() => {
-                const response = ` [AI: ${aiPrompt}] `;
-                editor.chain().focus().insertContent(response).run();
-                setAiPrompt('');
-                setIsGenerating(false);
-            }, 1000);
         };
 
         const addImage = () => {
@@ -394,24 +378,6 @@ export const TiptapEditor = forwardRef<TiptapEditorRef, TiptapEditorProps>(
                             <option value="1.5">1.5</option>
                             <option value="2">2</option>
                         </select>
-
-                        <div className="w-px h-6 bg-gray-300 mx-1"></div>
-                        
-                        <Button 
-                            onClick={() => editor.chain().focus().setMark('textStyle', { dataCue: 'threat', dataThreatId: '123' }).run()} 
-                            disabled={isSourceMode}
-                            title="Add Threat Data"
-                        >
-                            <ShieldAlert size={16} />
-                        </Button>
-                        <Button 
-                            onClick={() => editor.chain().focus().setMark('textStyle', { dataCue: null, dataThreatId: null }).removeEmptyTextStyle().run()} 
-                            disabled={isSourceMode}
-                            title="Remove Threat Data"
-                        >
-                            <ShieldOff size={16} />
-                        </Button>
-
                         <div className="w-px h-6 bg-gray-300 mx-1"></div>
                         <Button onClick={() => setShowSearch(!showSearch)} isActive={showSearch} disabled={isSourceMode} title="Find and Replace"><Search size={16} /></Button>
 
@@ -453,27 +419,6 @@ export const TiptapEditor = forwardRef<TiptapEditorRef, TiptapEditorProps>(
             <>
                 {toolbarElement && createPortal(renderToolbar(), toolbarElement)}
                 
-                {editor && !isSourceMode && (
-                    <BubbleMenu editor={editor}>
-                        <div className="flex items-center gap-2 p-2 bg-white shadow-lg border border-gray-200 rounded-lg">
-                            <input
-                                type="text"
-                                placeholder="Ask AI..."
-                                value={aiPrompt}
-                                onChange={(e) => setAiPrompt(e.target.value)}
-                                className="px-3 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                            />
-                            <button
-                                onClick={handleAiSubmit}
-                                disabled={isGenerating || !aiPrompt}
-                                className="px-3 py-1 text-sm font-medium text-white bg-indigo-600 rounded hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50"
-                            >
-                                {isGenerating ? 'Generating...' : '✨ Generate'}
-                            </button>
-                        </div>
-                    </BubbleMenu>
-                )}
-
                 <div className="w-full h-full min-h-[250mm]">
                     {isSourceMode ? (
                         <textarea
