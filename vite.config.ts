@@ -1,10 +1,11 @@
 import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
 import path from 'path';
-import {defineConfig} from 'vite';
+import {defineConfig, loadEnv} from 'vite';
 import cssInjectedByJsPlugin from 'vite-plugin-css-injected-by-js';
 
 export default defineConfig(({mode}) => {
+  const env = loadEnv(mode, '.', '');
   return {
     plugins: [
         react(), 
@@ -12,8 +13,7 @@ export default defineConfig(({mode}) => {
         cssInjectedByJsPlugin()
     ],
     define: {
-      // Add this line to fix the "process is not defined" error in the browser
-      'process.env.NODE_ENV': JSON.stringify(mode === 'development' ? 'development' : 'production'),
+      'process.env.GEMINI_API_KEY': JSON.stringify(env.GEMINI_API_KEY),
     },
     resolve: {
       alias: {

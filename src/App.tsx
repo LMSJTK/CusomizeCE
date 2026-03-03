@@ -9,7 +9,7 @@ import { CustomizeCE } from './CustomizeCE';
 export default function App() {
   const editorRef = useRef<HTMLDivElement>(null);
   const toolbarRef = useRef<HTMLDivElement>(null);
-  const [html, setHtml] = useState('<p>Welcome to the editor!</p>');
+  const [html, setHtml] = useState('<p>Welcome to the <strong>Customize CE</strong> editor!</p><p>Select some text and click "Add Threat Data" to test the custom extension.</p><p>Select some text to see the AI Assistant Bubble Menu.</p>');
 
   useEffect(() => {
     if (!editorRef.current || !toolbarRef.current) return;
@@ -34,7 +34,7 @@ export default function App() {
         <div className="text-center">
           <h1 className="text-3xl font-extrabold text-gray-900">Customize CE Editor</h1>
           <p className="mt-2 text-sm text-gray-600">
-            A standalone Tiptap-based editor.
+            A standalone Tiptap-based editor with custom Threat Attributes and AI Assistant.
           </p>
         </div>
 
