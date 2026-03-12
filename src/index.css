@@ -1,11 +1,91 @@
-@import "tailwindcss";
+/*
+ * Import only Tailwind theme + utilities (NOT preflight).
+ * This avoids @layer base conflicts when host pages load Tailwind v3 CDN,
+ * which establishes its own @layer order first and causes v4's preflight
+ * to interfere with typography/prose rules.
+ */
+@import "tailwindcss/theme";
+@import "tailwindcss/utilities";
 @plugin "@tailwindcss/typography";
 
+/*
+ * Scoped typography defaults for editor content.
+ * These rules live outside @layer so they always beat any layered resets,
+ * preventing v3/v4 @layer ordering issues from stripping heading sizes,
+ * list markers, link styles, etc.
+ */
 .ProseMirror {
   outline: none;
   min-height: 100%;
+
+  /* Headings */
+  h1 { font-size: 2.25em; font-weight: 700; line-height: 1.2; margin: 0.67em 0; }
+  h2 { font-size: 1.5em;  font-weight: 700; line-height: 1.3; margin: 0.83em 0; }
+  h3 { font-size: 1.25em; font-weight: 600; line-height: 1.4; margin: 1em 0; }
+  h4 { font-size: 1.125em; font-weight: 600; line-height: 1.4; margin: 1em 0; }
+  h5 { font-size: 1em;    font-weight: 600; line-height: 1.5; margin: 1em 0; }
+  h6 { font-size: 0.875em; font-weight: 600; line-height: 1.5; margin: 1em 0; }
+
+  /* Lists */
+  ul { list-style-type: disc; padding-left: 1.5em; margin: 1em 0; }
+  ol { list-style-type: decimal; padding-left: 1.5em; margin: 1em 0; }
+  li { margin: 0.25em 0; }
+  ul ul { list-style-type: circle; }
+  ul ul ul { list-style-type: square; }
+
+  /* Links */
+  a { color: #2563eb; text-decoration: underline; }
+  a:hover { color: #1d4ed8; }
+
+  /* Paragraphs */
+  p { margin: 1em 0; }
+
+  /* Blockquotes */
+  blockquote {
+    border-left: 4px solid #d1d5db;
+    padding-left: 1em;
+    margin: 1em 0;
+    color: #6b7280;
+    font-style: italic;
+  }
+
+  /* Code */
+  code {
+    background-color: #f3f4f6;
+    padding: 0.125em 0.25em;
+    border-radius: 0.25rem;
+    font-size: 0.875em;
+  }
+  pre {
+    background-color: #1f2937;
+    color: #f9fafb;
+    padding: 1em;
+    border-radius: 0.5rem;
+    overflow-x: auto;
+    margin: 1em 0;
+  }
+  pre code {
+    background-color: transparent;
+    padding: 0;
+    border-radius: 0;
+    font-size: inherit;
+  }
+
+  /* Horizontal rule */
+  hr {
+    border: none;
+    border-top: 2px solid #e5e7eb;
+    margin: 2em 0;
+  }
+
+  /* Images */
+  img {
+    max-width: 100%;
+    height: auto;
+  }
 }
 
+/* Threat annotation styles */
 .ProseMirror span[data-cue="threat"] {
   background-color: #fee2e2; /* red-100 */
   color: #991b1b; /* red-800 */
