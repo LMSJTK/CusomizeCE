@@ -1,22 +1,11 @@
 import { Extension } from '@tiptap/core';
 
-/**
- * Preserves arbitrary inline style properties that aren't handled by
- * other Tiptap extensions (color, background-color, font-size,
- * line-height, text-align, font-family) through parse/render cycles.
- */
 export const StylePreserver = Extension.create({
   name: 'stylePreserver',
 
   addGlobalAttributes() {
-    const knownProperties = [
-      'color',
-      'background-color',
-      'font-size',
-      'line-height',
-      'text-align',
-      'font-family',
-    ];
+    // 1. EMPTY THIS ARRAY to force Tiptap to preserve ALL inline styles
+    const knownProperties: string[] = []; 
 
     const nodeTypes = [
       'paragraph',
@@ -31,6 +20,8 @@ export const StylePreserver = Extension.create({
       'tableRow',
       'tableCell',
       'tableHeader',
+      'span', // 2. ADD span
+      'div'   // 3. ADD div
     ];
 
     const markTypes = ['textStyle'];
