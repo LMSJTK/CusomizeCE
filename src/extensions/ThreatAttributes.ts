@@ -6,7 +6,7 @@ export const ThreatAttributes = Extension.create({
   addGlobalAttributes() {
     return [
       {
-        types: ['textStyle', 'paragraph', 'heading', 'span'], // Add block types you need
+        types: ['textStyle', 'paragraph', 'heading', 'span', 'div'], // Added div/span for safety
         attributes: {
           dataCue: {
             default: null,
@@ -22,6 +22,15 @@ export const ThreatAttributes = Extension.create({
             renderHTML: attributes => {
               if (!attributes.dataThreatId) return {};
               return { 'data-threat-id': attributes.dataThreatId };
+            },
+          },
+          // ADD THE DATA-BRAND ATTRIBUTE HERE:
+          dataBrand: {
+            default: null,
+            parseHTML: element => element.getAttribute('data-brand'),
+            renderHTML: attributes => {
+              if (!attributes.dataBrand) return {};
+              return { 'data-brand': attributes.dataBrand };
             },
           }
         },
