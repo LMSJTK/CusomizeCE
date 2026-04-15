@@ -16,10 +16,7 @@ import { ThreatAttributes } from '../extensions/ThreatAttributes';
 import { Video } from '../extensions/Video';
 import { Audio } from '../extensions/Audio';
 import { FontSize } from '../extensions/FontSize';
-import { FontFamily } from '../extensions/FontFamily';
 import { LineHeight } from '../extensions/LineHeight';
-import { StylePreserver } from '../extensions/StylePreserver';
-import { ClassPreserver } from '../extensions/ClassPreserver';
 import { Link as TiptapLink } from '@tiptap/extension-link';
 import { 
     Bold, Italic, Strikethrough, Heading1, Heading2, 
@@ -68,10 +65,7 @@ export const TiptapEditor = forwardRef<TiptapEditorRef, TiptapEditorProps>(
                 Video,
                 Audio,
                 FontSize,
-                FontFamily,
                 LineHeight,
-                StylePreserver,
-                ClassPreserver,
             ],
             content: content,
             onUpdate: ({ editor }) => {

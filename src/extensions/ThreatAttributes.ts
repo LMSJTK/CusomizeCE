@@ -6,8 +6,21 @@ export const ThreatAttributes = Extension.create({
   addGlobalAttributes() {
     return [
       {
-        types: ['textStyle', 'paragraph', 'heading', 'span', 'div'], // Added div/span for safety
+        types: [
+          'textStyle', 'paragraph', 'heading', 'span', 
+          'table', 'tableRow', 'tableCell', 'tableHeader', 
+          'bulletList', 'orderedList', 'listItem', 'blockquote', 
+          'image', 'video', 'audio', 'link'
+        ],
         attributes: {
+          style: {
+            default: null,
+            parseHTML: element => element.getAttribute('style'),
+            renderHTML: attributes => {
+              if (!attributes.style) return {};
+              return { style: attributes.style };
+            },
+          },
           dataCue: {
             default: null,
             parseHTML: element => element.getAttribute('data-cue'),
@@ -24,13 +37,20 @@ export const ThreatAttributes = Extension.create({
               return { 'data-threat-id': attributes.dataThreatId };
             },
           },
-          // ADD THE DATA-BRAND ATTRIBUTE HERE:
           dataBrand: {
             default: null,
             parseHTML: element => element.getAttribute('data-brand'),
             renderHTML: attributes => {
               if (!attributes.dataBrand) return {};
               return { 'data-brand': attributes.dataBrand };
+            },
+          },
+          dataTag: {
+            default: null,
+            parseHTML: element => element.getAttribute('data-tag'),
+            renderHTML: attributes => {
+              if (!attributes.dataTag) return {};
+              return { 'data-tag': attributes.dataTag };
             },
           }
         },
