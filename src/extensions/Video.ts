@@ -10,7 +10,7 @@ declare module '@tiptap/core' {
       /**
        * Add a video
        */
-      setVideo: (options: { src: string }) => ReturnType;
+      setVideo: (options: { src: string, alt?: string }) => ReturnType;
     };
   }
 }
@@ -30,6 +30,7 @@ export const Video = Node.create<VideoOptions>({
     addAttributes() {
         return {
             src: { default: null },
+            alt: { default: null },
             controls: { default: true },
         };
     },

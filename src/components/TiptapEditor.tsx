@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import { useEditor, EditorContent } from '@tiptap/react';
 import { BubbleMenu } from '@tiptap/react/menus';
 import StarterKit from '@tiptap/starter-kit';
-import { Image } from '@tiptap/extension-image';
+import { ResizableImage } from '../extensions/ResizableImage';
 import { CustomTable } from '../extensions/CustomTable';
 import { TableRow } from '@tiptap/extension-table-row';
 import { TableCell } from '@tiptap/extension-table-cell';
@@ -13,18 +13,20 @@ import { Color } from '@tiptap/extension-color';
 import { Highlight } from '@tiptap/extension-highlight';
 import { TextAlign } from '@tiptap/extension-text-align';
 import { ThreatAttributes } from '../extensions/ThreatAttributes';
+import { ThreatMark } from '../extensions/ThreatMark';
 import { Video } from '../extensions/Video';
 import { Audio } from '../extensions/Audio';
 import { FontSize } from '../extensions/FontSize';
 import { LineHeight } from '../extensions/LineHeight';
-import { Link as TiptapLink } from '@tiptap/extension-link';
+import { Div } from '../extensions/Div';
+import { CustomLink } from '../extensions/CustomLink';
 import { 
     Bold, Italic, Strikethrough, Heading1, Heading2, 
     List, ListOrdered, Quote, Undo, Redo, 
     AlignLeft, AlignCenter, AlignRight, 
     Image as ImageIcon, Video as VideoIcon, Music as AudioIcon,
     ShieldAlert, ShieldOff, Code,
-    Link as LinkIcon, Unlink, Table as TableIcon, Search
+    Link as LinkIcon, Unlink, Table as TableIcon, Search, GraduationCap
 } from 'lucide-react';
 
 export interface TiptapEditorProps {
@@ -47,25 +49,33 @@ export const TiptapEditor = forwardRef<TiptapEditorRef, TiptapEditorProps>(
         const [showSearch, setShowSearch] = useState(false);
         const [searchTerm, setSearchTerm] = useState('');
         const [replaceTerm, setReplaceTerm] = useState('');
+        const [mediaModal, setMediaModal] = useState<{isOpen: boolean, type: 'image'|'video'|'audio'|null}>({isOpen: false, type: null});
+        const [mediaUrl, setMediaUrl] = useState('');
+        const [mediaAlt, setMediaAlt] = useState('');
+        const [mediaFile, setMediaFile] = useState<File | null>(null);
+        const [threatModal, setThreatModal] = useState<{isOpen: boolean, id: string}>({isOpen: false, id: ''});
+        const [linkModal, setLinkModal] = useState<{isOpen: boolean, url: string, className: string}>({isOpen: false, url: '', className: ''});
 
         const editor = useEditor({
             extensions: [
                 StarterKit,
-                Image,
+                ResizableImage.configure({ allowBase64: true }),
                 CustomTable.configure({ resizable: true }),
                 TableRow,
                 TableHeader,
                 TableCell,
                 TextStyle,
                 ThreatAttributes,
+                ThreatMark,
                 Color,
                 Highlight.configure({ multicolor: true }),
                 TextAlign.configure({ types: ['heading', 'paragraph'] }),
-                TiptapLink.configure({ openOnClick: false }),
+                CustomLink.configure({ openOnClick: false }),
                 Video,
                 Audio,
                 FontSize,
                 LineHeight,
+                Div,
             ],
             content: content,
             onUpdate: ({ editor }) => {
@@ -73,6 +83,72 @@ export const TiptapEditor = forwardRef<TiptapEditorRef, TiptapEditorProps>(
                 setSourceHtml(html);
                 if (onUpdate) onUpdate(html);
             },
+            editorProps: {
+                handleClick: (view, pos, event) => {
+                    const target = event.target as HTMLElement;
+                    const link = target.closest('a');
+                    if (link && view.editable) {
+                        if (event.ctrlKey || event.metaKey || event.shiftKey) {
+                            window.open(link.href, '_blank');
+                            return true;
+                        }
+                        event.preventDefault();
+                        return false;
+                    }
+                    return false;
+                },
+                handleDoubleClickOn: (view, pos, node, nodePos, event, direct) => {
+                    if (node.isText && node.marks) {
+                        const linkMark = node.marks.find(m => m.type.name === 'link');
+                        if (linkMark) {
+                            setLinkModal({ isOpen: true, url: linkMark.attrs.href || '', className: linkMark.attrs.class || '' });
+                            return false;
+                        }
+                    }
+                    if (node.type.name === 'image') {
+                        setMediaModal({ isOpen: true, type: 'image' });
+                        setMediaUrl(node.attrs.src || '');
+                        setMediaAlt(node.attrs.alt || '');
+                        return false;
+                    }
+                    if (node.type.name === 'video') {
+                        setMediaModal({ isOpen: true, type: 'video' });
+                        setMediaUrl(node.attrs.src || '');
+                        setMediaAlt(node.attrs.alt || '');
+                        return false;
+                    }
+                    if (node.type.name === 'audio') {
+                        setMediaModal({ isOpen: true, type: 'audio' });
+                        setMediaUrl(node.attrs.src || '');
+                        setMediaAlt(node.attrs.alt || '');
+                        return false;
+                    }
+                    return false;
+                },
+                handlePaste: (view, event, slice) => {
+                    const items = event.clipboardData?.items;
+                    if (!items) return false;
+                    
+                    let handled = false;
+                    for (const item of Array.from(items)) {
+                        if (item.type.indexOf('image') === 0) {
+                            const file = item.getAsFile();
+                            if (file) {
+                                const reader = new FileReader();
+                                reader.onload = (e) => {
+                                    const src = e.target?.result as string;
+                                    const node = view.state.schema.nodes.image.create({ src });
+                                    const transaction = view.state.tr.replaceSelectionWith(node);
+                                    view.dispatch(transaction);
+                                };
+                                reader.readAsDataURL(file);
+                                handled = true;
+                            }
+                        }
+                    }
+                    return handled;
+                }
+            }
         });
 
         useImperativeHandle(ref, () => ({
@@ -119,39 +195,115 @@ export const TiptapEditor = forwardRef<TiptapEditorRef, TiptapEditorProps>(
         };
 
         const addImage = () => {
-            const url = window.prompt('Enter Image URL');
-            if (url && editor) editor.chain().focus().setImage({ src: url }).run();
+            setMediaModal({ isOpen: true, type: 'image' });
         };
 
         const addVideo = () => {
-            const url = window.prompt('Enter Video URL');
-            if (url && editor) editor.chain().focus().setVideo({ src: url }).run();
+            setMediaModal({ isOpen: true, type: 'video' });
         };
 
         const addAudio = () => {
-            const url = window.prompt('Enter Audio URL');
-            if (url && editor) editor.chain().focus().setAudio({ src: url }).run();
+            setMediaModal({ isOpen: true, type: 'audio' });
+        };
+
+        const handleMediaSubmit = () => {
+            if (!editor || !mediaModal.type) return;
+
+            const insertMedia = (src: string) => {
+                if (mediaModal.type === 'image') {
+                    editor.chain().focus().setImage({ src, alt: mediaAlt }).run();
+                } else if (mediaModal.type === 'video') {
+                    editor.chain().focus().setVideo({ src, alt: mediaAlt }).run();
+                } else if (mediaModal.type === 'audio') {
+                    editor.chain().focus().setAudio({ src, alt: mediaAlt }).run();
+                }
+                
+                setMediaModal({ isOpen: false, type: null });
+                setMediaUrl('');
+                setMediaAlt('');
+                setMediaFile(null);
+            };
+
+            if (mediaFile) {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    const src = e.target?.result as string;
+                    insertMedia(src);
+                };
+                reader.readAsDataURL(mediaFile);
+            } else if (mediaUrl) {
+                insertMedia(mediaUrl);
+            }
         };
 
         const toggleLink = () => {
             if (!editor) return;
-            const previousUrl = editor.getAttributes('link').href;
-            const url = window.prompt('Enter URL', previousUrl || '');
-            
-            if (url === null) return;
-            
-            if (url === '') {
-                editor.chain().focus().unsetLink().run();
-                return;
+            if (editor.isActive('link')) {
+                const previousUrl = editor.getAttributes('link').href;
+                const previousClass = editor.getAttributes('link').class;
+                setLinkModal({ isOpen: true, url: previousUrl || '', className: previousClass || '' });
+            } else {
+                setLinkModal({ isOpen: true, url: '', className: '' });
             }
+        };
+
+        const handleLinkSubmit = () => {
+            if (!editor) return;
+            if (!linkModal.url) {
+                editor.chain().focus().unsetLink().run();
+            } else {
+                if (editor.state.selection.empty) {
+                    editor.chain().focus().insertContent(`<a href="${linkModal.url}" class="${linkModal.className}">${linkModal.url}</a>`).run();
+                } else {
+                    editor.chain().focus().setLink({ href: linkModal.url, class: linkModal.className }).run();
+                }
+            }
+            setLinkModal({ isOpen: false, url: '', className: '' });
+        };
+
+        const insertTrainingLink = () => {
+            if (!editor) return;
+            const url = '{{{trainingURL}}}';
+            const className = 'phishing-link-do-not-delete';
 
             if (editor.state.selection.empty) {
-                // If no text is selected, insert the URL as text and link it
-                editor.chain().focus().insertContent(`<a href="${url}">${url}</a>`).run();
+                editor.chain().focus().insertContent(`<a href="${url}" class="${className}">Training Link</a>`).run();
             } else {
-                // If text is selected, apply the link mark
-                editor.chain().focus().setLink({ href: url }).run();
+                editor.chain().focus().setLink({ href: url, class: className }).run();
             }
+        };
+
+        const addThreat = () => {
+            if (!editor) return;
+            const previousId = editor.getAttributes('threat')['data-threat-id'];
+            setThreatModal({ isOpen: true, id: previousId || '' });
+        };
+
+        const handleThreatSubmit = () => {
+            if (!editor) return;
+            
+            if (threatModal.id === '') {
+                editor.chain().focus().unsetThreat().run();
+            } else {
+                if (editor.state.selection.empty) {
+                    editor.chain().focus().insertContent({
+                        type: 'text',
+                        text: 'New Threat',
+                        marks: [
+                            {
+                                type: 'threat',
+                                attrs: {
+                                    'data-cue': 'threat',
+                                    'data-threat-id': threatModal.id
+                                }
+                            }
+                        ]
+                    }).run();
+                } else {
+                    editor.chain().focus().setThreat({ 'data-cue': 'threat', 'data-threat-id': threatModal.id }).run();
+                }
+            }
+            setThreatModal({ isOpen: false, id: '' });
         };
 
         const insertTable = () => {
@@ -303,6 +455,7 @@ export const TiptapEditor = forwardRef<TiptapEditorRef, TiptapEditorProps>(
 
                         <Button onClick={toggleLink} isActive={editor.isActive('link')} disabled={isSourceMode} title="Set Link"><LinkIcon size={16} /></Button>
                         <Button onClick={() => editor.chain().focus().unsetLink().run()} disabled={isSourceMode || !editor.isActive('link')} title="Unset Link"><Unlink size={16} /></Button>
+                        <Button onClick={insertTrainingLink} disabled={isSourceMode} title="Insert Training Link"><GraduationCap size={16} /></Button>
 
                         <div className="w-px h-6 bg-gray-300 mx-1"></div>
 
@@ -398,15 +551,16 @@ export const TiptapEditor = forwardRef<TiptapEditorRef, TiptapEditorProps>(
                         <div className="w-px h-6 bg-gray-300 mx-1"></div>
                         
                         <Button 
-                            onClick={() => editor.chain().focus().setMark('textStyle', { dataCue: 'threat', dataThreatId: '123' }).run()} 
+                            onClick={addThreat} 
+                            isActive={editor.isActive('threat')}
                             disabled={isSourceMode}
                             title="Add Threat Data"
                         >
                             <ShieldAlert size={16} />
                         </Button>
                         <Button 
-                            onClick={() => editor.chain().focus().setMark('textStyle', { dataCue: null, dataThreatId: null }).removeEmptyTextStyle().run()} 
-                            disabled={isSourceMode}
+                            onClick={() => editor.chain().focus().unsetThreat().run()} 
+                            disabled={isSourceMode || !editor.isActive('threat')}
                             title="Remove Threat Data"
                         >
                             <ShieldOff size={16} />
@@ -485,6 +639,155 @@ export const TiptapEditor = forwardRef<TiptapEditorRef, TiptapEditorProps>(
                         <EditorContent editor={editor} className="w-full h-full min-h-[250mm]" />
                     )}
                 </div>
+
+                {mediaModal.isOpen && (
+                    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999]">
+                        <div className="bg-white p-6 rounded-lg shadow-xl w-96 max-w-full">
+                            <h3 className="text-lg font-medium mb-4 capitalize">Insert {mediaModal.type}</h3>
+                            
+                            <div className="space-y-4">
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Upload File</label>
+                                    <input 
+                                        type="file" 
+                                        accept={`${mediaModal.type}/*`}
+                                        onChange={(e) => setMediaFile(e.target.files?.[0] || null)}
+                                        className="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100"
+                                    />
+                                </div>
+                                
+                                <div className="text-center text-sm text-gray-500">OR</div>
+
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">URL</label>
+                                    <input 
+                                        type="text" 
+                                        value={mediaUrl}
+                                        onChange={(e) => setMediaUrl(e.target.value)}
+                                        placeholder={`https://...`}
+                                        className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                    />
+                                </div>
+
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Alt Text</label>
+                                    <input 
+                                        type="text" 
+                                        value={mediaAlt}
+                                        onChange={(e) => setMediaAlt(e.target.value)}
+                                        placeholder="Description for accessibility"
+                                        className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="mt-6 flex justify-end gap-2">
+                                <button 
+                                    onClick={() => {
+                                        setMediaModal({isOpen: false, type: null});
+                                        setMediaUrl('');
+                                        setMediaAlt('');
+                                        setMediaFile(null);
+                                    }}
+                                    className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded hover:bg-gray-50"
+                                >
+                                    Cancel
+                                </button>
+                                <button 
+                                    onClick={handleMediaSubmit}
+                                    disabled={!mediaUrl && !mediaFile}
+                                    className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded hover:bg-indigo-700 disabled:opacity-50"
+                                >
+                                    Insert
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {threatModal.isOpen && (
+                    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999]">
+                        <div className="bg-white p-6 rounded-lg shadow-xl w-96 max-w-full">
+                            <h3 className="text-lg font-medium mb-4">Set Threat ID</h3>
+                            
+                            <div className="space-y-4">
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Threat ID</label>
+                                    <input 
+                                        type="text" 
+                                        value={threatModal.id}
+                                        onChange={(e) => setThreatModal({...threatModal, id: e.target.value})}
+                                        placeholder="e.g. 123"
+                                        className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                        autoFocus
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="mt-6 flex justify-end gap-2">
+                                <button 
+                                    onClick={() => setThreatModal({isOpen: false, id: ''})}
+                                    className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded hover:bg-gray-50"
+                                >
+                                    Cancel
+                                </button>
+                                <button 
+                                    onClick={handleThreatSubmit}
+                                    className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded hover:bg-indigo-700"
+                                >
+                                    Save
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {linkModal.isOpen && (
+                    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999]">
+                        <div className="bg-white p-6 rounded-lg shadow-xl w-96 max-w-full">
+                            <h3 className="text-lg font-medium mb-4">Edit Link</h3>
+                            
+                            <div className="space-y-4">
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">URL</label>
+                                    <input 
+                                        type="text" 
+                                        value={linkModal.url}
+                                        onChange={(e) => setLinkModal({...linkModal, url: e.target.value})}
+                                        placeholder="https://..."
+                                        className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                        autoFocus
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">CSS Class (Optional)</label>
+                                    <input 
+                                        type="text" 
+                                        value={linkModal.className}
+                                        onChange={(e) => setLinkModal({...linkModal, className: e.target.value})}
+                                        placeholder="e.g. phishing-link-do-not-delete"
+                                        className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="mt-6 flex justify-end gap-2">
+                                <button 
+                                    onClick={() => setLinkModal({isOpen: false, url: '', className: ''})}
+                                    className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded hover:bg-gray-50"
+                                >
+                                    Cancel
+                                </button>
+                                <button 
+                                    onClick={handleLinkSubmit}
+                                    className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded hover:bg-indigo-700"
+                                >
+                                    Save
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )}
             </>
         );
     }

@@ -10,7 +10,7 @@ declare module '@tiptap/core' {
       /**
        * Add an audio
        */
-      setAudio: (options: { src: string }) => ReturnType;
+      setAudio: (options: { src: string, alt?: string }) => ReturnType;
     };
   }
 }
@@ -30,6 +30,7 @@ export const Audio = Node.create<AudioOptions>({
     addAttributes() {
         return {
             src: { default: null },
+            alt: { default: null },
             controls: { default: true },
         };
     },

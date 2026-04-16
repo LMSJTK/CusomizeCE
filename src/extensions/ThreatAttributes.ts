@@ -10,7 +10,7 @@ export const ThreatAttributes = Extension.create({
           'textStyle', 'paragraph', 'heading', 'span', 
           'table', 'tableRow', 'tableCell', 'tableHeader', 
           'bulletList', 'orderedList', 'listItem', 'blockquote', 
-          'image', 'video', 'audio', 'link'
+          'image', 'video', 'audio', 'link', 'div'
         ],
         attributes: {
           style: {
