@@ -1,14 +1,13 @@
 import React, { useState, useImperativeHandle, forwardRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useEditor, EditorContent } from '@tiptap/react';
-import { BubbleMenu } from '@tiptap/react/menus';
 import StarterKit from '@tiptap/starter-kit';
 import { ResizableImage } from '../extensions/ResizableImage';
 import { CustomTable } from '../extensions/CustomTable';
 import { TableRow } from '@tiptap/extension-table-row';
 import { TableCell } from '@tiptap/extension-table-cell';
 import { TableHeader } from '@tiptap/extension-table-header';
-import { TextStyle } from '@tiptap/extension-text-style';
+import { CustomTextStyle } from '../extensions/CustomTextStyle';
 import { Color } from '@tiptap/extension-color';
 import { Highlight } from '@tiptap/extension-highlight';
 import { TextAlign } from '@tiptap/extension-text-align';
@@ -16,17 +15,20 @@ import { ThreatAttributes } from '../extensions/ThreatAttributes';
 import { ThreatMark } from '../extensions/ThreatMark';
 import { Video } from '../extensions/Video';
 import { Audio } from '../extensions/Audio';
+import { Embed } from '../extensions/Embed';
 import { FontSize } from '../extensions/FontSize';
 import { LineHeight } from '../extensions/LineHeight';
 import { Div } from '../extensions/Div';
 import { CustomLink } from '../extensions/CustomLink';
-import { 
-    Bold, Italic, Strikethrough, Heading1, Heading2, 
-    List, ListOrdered, Quote, Undo, Redo, 
-    AlignLeft, AlignCenter, AlignRight, 
+import { LinkButton, DEFAULT_BUTTON_STYLE } from '../extensions/LinkButton';
+import {
+    Bold, Italic, Strikethrough, Heading1, Heading2,
+    List, ListOrdered, Quote, Undo, Redo,
+    AlignLeft, AlignCenter, AlignRight,
     Image as ImageIcon, Video as VideoIcon, Music as AudioIcon,
     ShieldAlert, ShieldOff, Code,
-    Link as LinkIcon, Unlink, Table as TableIcon, Search, GraduationCap
+    Link as LinkIcon, Unlink, Table as TableIcon, Search, GraduationCap,
+    MousePointerClick
 } from 'lucide-react';
 
 export interface TiptapEditorProps {
@@ -44,8 +46,6 @@ export const TiptapEditor = forwardRef<TiptapEditorRef, TiptapEditorProps>(
     ({ content, toolbarElement, onUpdate }, ref) => {
         const [isSourceMode, setIsSourceMode] = useState(false);
         const [sourceHtml, setSourceHtml] = useState(content);
-        const [aiPrompt, setAiPrompt] = useState('');
-        const [isGenerating, setIsGenerating] = useState(false);
         const [showSearch, setShowSearch] = useState(false);
         const [searchTerm, setSearchTerm] = useState('');
         const [replaceTerm, setReplaceTerm] = useState('');
@@ -55,16 +55,18 @@ export const TiptapEditor = forwardRef<TiptapEditorRef, TiptapEditorProps>(
         const [mediaFile, setMediaFile] = useState<File | null>(null);
         const [threatModal, setThreatModal] = useState<{isOpen: boolean, id: string}>({isOpen: false, id: ''});
         const [linkModal, setLinkModal] = useState<{isOpen: boolean, url: string, className: string}>({isOpen: false, url: '', className: ''});
+        const [buttonModal, setButtonModal] = useState<{isOpen: boolean, href: string, label: string, className: string, style: string}>({isOpen: false, href: '', label: '', className: '', style: ''});
 
         const editor = useEditor({
             extensions: [
-                StarterKit,
+                // StarterKit ships its own Link extension; disabled so CustomLink below is the only one.
+                StarterKit.configure({ link: false }),
                 ResizableImage.configure({ allowBase64: true }),
                 CustomTable.configure({ resizable: true }),
                 TableRow,
                 TableHeader,
                 TableCell,
-                TextStyle,
+                CustomTextStyle,
                 ThreatAttributes,
                 ThreatMark,
                 Color,
@@ -73,9 +75,11 @@ export const TiptapEditor = forwardRef<TiptapEditorRef, TiptapEditorProps>(
                 CustomLink.configure({ openOnClick: false }),
                 Video,
                 Audio,
+                Embed,
                 FontSize,
                 LineHeight,
                 Div,
+                LinkButton,
             ],
             content: content,
             onUpdate: ({ editor }) => {
@@ -84,6 +88,19 @@ export const TiptapEditor = forwardRef<TiptapEditorRef, TiptapEditorProps>(
                 if (onUpdate) onUpdate(html);
             },
             editorProps: {
+                handleDOMEvents: {
+                    // Anchors inside the editor must never navigate away while
+                    // editing — including the second click of a double-click,
+                    // which bypasses handleClick below.
+                    click: (view, event) => {
+                        const target = event.target as HTMLElement;
+                        const link = target.closest('a');
+                        if (link && view.editable && !(event.ctrlKey || event.metaKey || event.shiftKey)) {
+                            event.preventDefault();
+                        }
+                        return false;
+                    },
+                },
                 handleClick: (view, pos, event) => {
                     const target = event.target as HTMLElement;
                     const link = target.closest('a');
@@ -115,6 +132,22 @@ export const TiptapEditor = forwardRef<TiptapEditorRef, TiptapEditorProps>(
                         setMediaModal({ isOpen: true, type: 'video' });
                         setMediaUrl(node.attrs.src || '');
                         setMediaAlt(node.attrs.alt || '');
+                        return false;
+                    }
+                    if (node.type.name === 'embed') {
+                        setMediaModal({ isOpen: true, type: 'video' });
+                        setMediaUrl(node.attrs.src || '');
+                        setMediaAlt(node.attrs.title || '');
+                        return false;
+                    }
+                    if (node.type.name === 'button') {
+                        setButtonModal({
+                            isOpen: true,
+                            href: node.attrs.href || '',
+                            label: node.attrs.label || '',
+                            className: node.attrs.class || '',
+                            style: node.attrs.style || '',
+                        });
                         return false;
                     }
                     if (node.type.name === 'audio') {
@@ -183,17 +216,6 @@ export const TiptapEditor = forwardRef<TiptapEditorRef, TiptapEditorProps>(
             setIsSourceMode(!isSourceMode);
         };
 
-        const handleAiSubmit = () => {
-            if (!aiPrompt || !editor) return;
-            setIsGenerating(true);
-            setTimeout(() => {
-                const response = ` [AI: ${aiPrompt}] `;
-                editor.chain().focus().insertContent(response).run();
-                setAiPrompt('');
-                setIsGenerating(false);
-            }, 1000);
-        };
-
         const addImage = () => {
             setMediaModal({ isOpen: true, type: 'image' });
         };
@@ -259,6 +281,31 @@ export const TiptapEditor = forwardRef<TiptapEditorRef, TiptapEditorProps>(
                 }
             }
             setLinkModal({ isOpen: false, url: '', className: '' });
+        };
+
+        const addLinkButton = () => {
+            if (!editor) return;
+            const { from, to, empty } = editor.state.selection;
+            const selectedText = empty ? '' : editor.state.doc.textBetween(from, to, ' ');
+            setButtonModal({ isOpen: true, href: '', label: selectedText, className: '', style: '' });
+        };
+
+        const handleButtonSubmit = () => {
+            if (!editor || !buttonModal.href) return;
+            const attrs: { href: string, label: string, class?: string | null, style?: string | null } = {
+                href: buttonModal.href,
+                label: buttonModal.label || 'Button',
+            };
+            if (buttonModal.className) attrs.class = buttonModal.className;
+            if (buttonModal.style) {
+                // Keep whatever styling the button already had.
+                attrs.style = buttonModal.style;
+            } else if (!buttonModal.className) {
+                // Brand-new button without a class: apply the default look.
+                attrs.style = DEFAULT_BUTTON_STYLE;
+            }
+            editor.chain().focus().setLinkButton(attrs).run();
+            setButtonModal({ isOpen: false, href: '', label: '', className: '', style: '' });
         };
 
         const insertTrainingLink = () => {
@@ -456,6 +503,7 @@ export const TiptapEditor = forwardRef<TiptapEditorRef, TiptapEditorProps>(
                         <Button onClick={toggleLink} isActive={editor.isActive('link')} disabled={isSourceMode} title="Set Link"><LinkIcon size={16} /></Button>
                         <Button onClick={() => editor.chain().focus().unsetLink().run()} disabled={isSourceMode || !editor.isActive('link')} title="Unset Link"><Unlink size={16} /></Button>
                         <Button onClick={insertTrainingLink} disabled={isSourceMode} title="Insert Training Link"><GraduationCap size={16} /></Button>
+                        <Button onClick={addLinkButton} isActive={editor.isActive('button')} disabled={isSourceMode} title="Insert Button"><MousePointerClick size={16} /></Button>
 
                         <div className="w-px h-6 bg-gray-300 mx-1"></div>
 
@@ -606,27 +654,6 @@ export const TiptapEditor = forwardRef<TiptapEditorRef, TiptapEditorProps>(
         return (
             <>
                 {toolbarElement && createPortal(renderToolbar(), toolbarElement)}
-                
-                {editor && !isSourceMode && (
-                    <BubbleMenu editor={editor}>
-                        <div className="flex items-center gap-2 p-2 bg-white shadow-lg border border-gray-200 rounded-lg">
-                            <input
-                                type="text"
-                                placeholder="Ask AI..."
-                                value={aiPrompt}
-                                onChange={(e) => setAiPrompt(e.target.value)}
-                                className="px-3 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                            />
-                            <button
-                                onClick={handleAiSubmit}
-                                disabled={isGenerating || !aiPrompt}
-                                className="px-3 py-1 text-sm font-medium text-white bg-indigo-600 rounded hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50"
-                            >
-                                {isGenerating ? 'Generating...' : '✨ Generate'}
-                            </button>
-                        </div>
-                    </BubbleMenu>
-                )}
 
                 <div className="w-full h-full min-h-[250mm]">
                     {isSourceMode ? (
@@ -660,13 +687,16 @@ export const TiptapEditor = forwardRef<TiptapEditorRef, TiptapEditorProps>(
 
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-1">URL</label>
-                                    <input 
-                                        type="text" 
+                                    <input
+                                        type="text"
                                         value={mediaUrl}
                                         onChange={(e) => setMediaUrl(e.target.value)}
-                                        placeholder={`https://...`}
+                                        placeholder={mediaModal.type === 'video' ? 'https://vimeo.com/123456789 or a video file URL' : 'https://...'}
                                         className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
                                     />
+                                    {mediaModal.type === 'video' && (
+                                        <p className="mt-1 text-xs text-gray-500">Vimeo and YouTube links are embedded automatically.</p>
+                                    )}
                                 </div>
 
                                 <div>
@@ -734,6 +764,65 @@ export const TiptapEditor = forwardRef<TiptapEditorRef, TiptapEditorProps>(
                                 <button 
                                     onClick={handleThreatSubmit}
                                     className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded hover:bg-indigo-700"
+                                >
+                                    Save
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {buttonModal.isOpen && (
+                    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[9999]">
+                        <div className="bg-white p-6 rounded-lg shadow-xl w-96 max-w-full">
+                            <h3 className="text-lg font-medium mb-4">Insert Button</h3>
+
+                            <div className="space-y-4">
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">Label</label>
+                                    <input
+                                        type="text"
+                                        value={buttonModal.label}
+                                        onChange={(e) => setButtonModal({...buttonModal, label: e.target.value})}
+                                        placeholder="e.g. Start Training"
+                                        className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                        autoFocus
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">URL</label>
+                                    <input
+                                        type="text"
+                                        value={buttonModal.href}
+                                        onChange={(e) => setButtonModal({...buttonModal, href: e.target.value})}
+                                        placeholder="https://..."
+                                        className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700 mb-1">CSS Class (Optional)</label>
+                                    <input
+                                        type="text"
+                                        value={buttonModal.className}
+                                        onChange={(e) => setButtonModal({...buttonModal, className: e.target.value})}
+                                        placeholder="e.g. brand-button"
+                                        className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                    />
+                                    <p className="mt-1 text-xs text-gray-500">Without a class, a default button style is applied inline.</p>
+                                </div>
+                            </div>
+
+                            <div className="mt-6 flex justify-end gap-2">
+                                <button
+                                    onClick={() => setButtonModal({isOpen: false, href: '', label: '', className: '', style: ''})}
+                                    className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded hover:bg-gray-50"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    onClick={handleButtonSubmit}
+                                    disabled={!buttonModal.href}
+                                    className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded hover:bg-indigo-700 disabled:opacity-50"
                                 >
                                     Save
                                 </button>

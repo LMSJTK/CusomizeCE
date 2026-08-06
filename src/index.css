@@ -19,6 +19,40 @@
   font-size: 0.75em;
   color: #ef4444; /* red-500 */
 }
+/* Iframe embeds (Vimeo/YouTube): a transparent overlay catches clicks while
+   editing so the node can be selected, dragged and double-clicked. */
+.ProseMirror div[data-embed-view] {
+  position: relative;
+  display: inline-block;
+  max-width: 100%;
+}
+
+.ProseMirror div[data-embed-view] iframe {
+  display: block;
+  max-width: 100%;
+}
+
+.ProseMirror div[data-embed-view] div[data-embed-overlay] {
+  position: absolute;
+  inset: 0;
+  cursor: pointer;
+}
+
+/* Link buttons: dashed affordance while editing; published styling comes from
+   the button's CSS class or inline style. */
+.ProseMirror a[data-type="button"] {
+  cursor: default;
+  outline: 1px dashed #c7d2fe; /* indigo-200 */
+  outline-offset: 2px;
+}
+
+.ProseMirror div[data-embed-view].ProseMirror-selectednode,
+.ProseMirror video.ProseMirror-selectednode,
+.ProseMirror a[data-type="button"].ProseMirror-selectednode {
+  outline: 2px solid #6366f1; /* indigo-500 */
+  outline-offset: 2px;
+}
+
 .ProseMirror p.is-editor-empty:first-child::before {
   color: #adb5bd;
   content: attr(data-placeholder);

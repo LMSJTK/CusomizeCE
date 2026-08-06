@@ -9,7 +9,7 @@ import { CustomizeCE } from './CustomizeCE';
 export default function App() {
   const editorRef = useRef<HTMLDivElement>(null);
   const toolbarRef = useRef<HTMLDivElement>(null);
-  const [html, setHtml] = useState('<p>Welcome to the <strong>Customize CE</strong> editor!</p><p>Select some text and click "Add Threat Data" to test the custom extension.</p><p>Select some text to see the AI Assistant Bubble Menu.</p>');
+  const [html, setHtml] = useState('<p>Welcome to the <strong>Customize CE</strong> editor!</p><p>Select some text and click "Add Threat Data" to test the custom extension.</p><p>Use the video button to embed a Vimeo link, or the button tool to insert a linkable button.</p>');
 
   useEffect(() => {
     if (!editorRef.current || !toolbarRef.current) return;
@@ -23,6 +23,9 @@ export default function App() {
       }
     });
 
+    // Expose the instance for the host page / debugging (mirrors how the PHP app holds the instance).
+    (window as any).customizeCE = editorInstance;
+
     return () => {
       editorInstance.destroy();
     };
@@ -34,7 +37,7 @@ export default function App() {
         <div className="text-center">
           <h1 className="text-3xl font-extrabold text-gray-900">Customize CE Editor</h1>
           <p className="mt-2 text-sm text-gray-600">
-            A standalone Tiptap-based editor with custom Threat Attributes and AI Assistant.
+            A standalone Tiptap-based editor with custom Threat Attributes, Vimeo embeds, and linkable buttons.
           </p>
         </div>
 

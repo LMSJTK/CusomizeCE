@@ -1,4 +1,5 @@
 import { Node, mergeAttributes } from '@tiptap/core';
+import { getEmbedUrl } from './Embed';
 
 export interface VideoOptions {
   HTMLAttributes: Record<string, any>;
@@ -46,6 +47,12 @@ export const Video = Node.create<VideoOptions>({
     addCommands() {
         return {
             setVideo: (options) => ({ commands }) => {
+                // Vimeo/YouTube page links can't play inside a <video> tag —
+                // route them to the iframe embed node instead.
+                const embedUrl = getEmbedUrl(options.src);
+                if (embedUrl) {
+                    return commands.setEmbed({ src: embedUrl, title: options.alt || null });
+                }
                 return commands.insertContent({
                     type: this.name,
                     attrs: options,
